@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "rootDir": ".",
+    "composite": true
+  },
+  "references": [
+    { "path": "packages/event-bus" },
+    { "path": "packages/kernel-core" },
+    { "path": "packages/sensor-hal" },
+    { "path": "packages/agent-runtime" },
+    { "path": "packages/device-gateway" },
+    { "path": "packages/demo-vision-agent" }
+  ],
+  "include": []
+}
