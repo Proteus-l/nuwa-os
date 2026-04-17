@@ -1,13 +1,24 @@
-import { IAgent } from './types.js';
+import { IAgent, ICapabilityView } from './types.js';
 import { AgentContextImpl, EventBusInterface } from './agent-context.js';
+
+export interface AgentRuntimeOptions {
+  /**
+   * Optional capability registry exposed to every agent via
+   * `ctx.getCapabilities()`. Pass an instance of `@nuwa-os/capability-registry`
+   * or any structurally-compatible view.
+   */
+  capabilities?: ICapabilityView;
+}
 
 export class AgentRuntime {
   private agents: Map<string, IAgent> = new Map();
   private contexts: Map<string, AgentContextImpl> = new Map();
   private eventBus: EventBusInterface;
+  private capabilities?: ICapabilityView;
 
-  constructor(eventBus: EventBusInterface) {
+  constructor(eventBus: EventBusInterface, options: AgentRuntimeOptions = {}) {
     this.eventBus = eventBus;
+    this.capabilities = options.capabilities;
   }
 
   async registerAgent(agent: IAgent): Promise<void> {
@@ -17,6 +28,7 @@ export class AgentRuntime {
     const context = new AgentContextImpl({
       agentId: agent.id,
       eventBus: this.eventBus,
+      capabilities: this.capabilities,
     });
     this.agents.set(agent.id, agent);
     this.contexts.set(agent.id, context);
