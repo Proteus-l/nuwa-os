@@ -3,10 +3,14 @@ import {
   AgentAction,
   AgentContext,
   BaseAgentOptions,
+  CapabilityChangeEvent,
   IAgent,
   NuwaEvent,
   Percept,
 } from './types.js';
+
+/** Topic patterns the runtime will auto-subscribe every agent to. */
+const CAPABILITY_TOPIC_PATTERN = 'capability.**';
 
 export abstract class BaseAgent implements IAgent {
   readonly id: string;
@@ -35,6 +39,16 @@ export abstract class BaseAgent implements IAgent {
       const unsub = context.subscribe(topic, (event) => this.onEvent(event));
       this._unsubscribers.push(unsub);
     }
+    // Auto-subscribe to capability lifecycle. This is always-on so that
+    // a persona / spirit layer can react to attach/detach without every
+    // concrete agent having to opt in.
+    const capUnsub = context.subscribe(CAPABILITY_TOPIC_PATTERN, (event) => {
+      const ev = this.parseCapabilityEvent(event);
+      if (ev) this.onCapabilityChange(ev).catch((err) => {
+        this.context?.log('error', `onCapabilityChange error: ${err}`);
+      });
+    });
+    this._unsubscribers.push(capUnsub);
   }
 
   async start(): Promise<void> {
@@ -104,6 +118,33 @@ export abstract class BaseAgent implements IAgent {
       data: event.data,
       timestamp: event.timestamp,
     };
+  }
+
+  /**
+   * Parse a bus event on `capability.attached` / `capability.detached` into
+   * a structured change event. Returns null if the payload shape is unexpected.
+   */
+  protected parseCapabilityEvent(event: NuwaEvent): CapabilityChangeEvent | null {
+    let kind: 'attached' | 'detached';
+    if (event.topic === 'capability.attached') kind = 'attached';
+    else if (event.topic === 'capability.detached') kind = 'detached';
+    else return null;
+    const cap = event.data as CapabilityChangeEvent['capability'] | undefined;
+    if (!cap || typeof cap !== 'object' || typeof cap.id !== 'string') {
+      return null;
+    }
+    return { kind, capability: cap };
+  }
+
+  /**
+   * Hook fired when a capability attaches or detaches. Override to react
+   * (e.g. promote short-term memory before a sense goes dark, or inject a
+   * reflective percept for the next think()). Default is a no-op.
+   */
+  protected async onCapabilityChange(
+    _event: CapabilityChangeEvent,
+  ): Promise<void> {
+    // default: no-op; subclasses may override.
   }
 
   abstract think(percepts: Percept[]): Promise<AgentAction[]>;

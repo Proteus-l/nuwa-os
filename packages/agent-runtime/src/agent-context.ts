@@ -1,4 +1,4 @@
-import { AgentContext, NuwaEvent } from './types.js';
+import { AgentContext, ICapabilityView, NuwaEvent } from './types.js';
 
 export interface EventBusInterface {
   subscribe(topic: string, handler: (event: NuwaEvent) => void): () => void;
@@ -8,10 +8,20 @@ export interface EventBusInterface {
 export class AgentContextImpl implements AgentContext {
   readonly agentId: string;
   private eventBus: EventBusInterface;
+  private capabilities?: ICapabilityView;
 
-  constructor(opts: { agentId: string; eventBus: EventBusInterface }) {
+  constructor(opts: {
+    agentId: string;
+    eventBus: EventBusInterface;
+    capabilities?: ICapabilityView;
+  }) {
     this.agentId = opts.agentId;
     this.eventBus = opts.eventBus;
+    this.capabilities = opts.capabilities;
+  }
+
+  getCapabilities(): ICapabilityView | undefined {
+    return this.capabilities;
   }
 
   subscribe(

@@ -29,12 +29,60 @@ export interface AgentAction {
   priority?: number;
 }
 
+/**
+ * Semantic modality a capability exposes to the agent. Kept as a string union
+ * here to stay decoupled from `@nuwa-os/capability-registry`; callers are
+ * expected to pass compatible values.
+ */
+export type Modality =
+  | 'vision'
+  | 'thermal'
+  | 'audio'
+  | 'proximity'
+  | 'text-input'
+  | 'actuator'
+  | 'generic';
+
+export interface Capability {
+  id: string;
+  modality: Modality;
+  sourceKind: 'sensor' | 'device';
+  sourceId: string;
+  name: string;
+  description?: string;
+  attachedAt: number;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Minimal read-only view of the capability registry that an agent can use
+ * from within think(). Defined here to avoid a cross-package dependency;
+ * `@nuwa-os/capability-registry` satisfies this structurally.
+ */
+export interface ICapabilityView {
+  list(): Capability[];
+  byModality(m: Modality): Capability[];
+  has(m: Modality): boolean;
+}
+
+export interface CapabilityChangeEvent {
+  kind: 'attached' | 'detached';
+  capability: Capability;
+}
+
 export interface AgentContext {
   agentId: string;
   subscribe(topic: string, handler: (event: NuwaEvent) => void): () => void;
   publish(event: Partial<NuwaEvent>): void;
   log(level: 'info' | 'warn' | 'error', message: string): void;
   getTime(): number;
+  /**
+   * Query what senses/devices the agent currently has. Optional so that
+   * legacy agents created without a capability registry keep working.
+   * When present, may still return undefined if the runtime was constructed
+   * without a capability registry.
+   */
+  getCapabilities?(): ICapabilityView | undefined;
 }
 
 export interface IAgent {
