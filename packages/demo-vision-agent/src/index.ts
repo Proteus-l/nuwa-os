@@ -35,3 +35,6 @@ export { VisionAgent } from './vision-agent';
 
 // NuwaOS
 export { NuwaOS } from './nuwa-os';
+
+// Control Plane
+export { NuwaControlPlane } from './control-plane';

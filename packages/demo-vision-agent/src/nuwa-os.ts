@@ -91,9 +91,12 @@ export class NuwaOS {
   }
 
   status(): Record<string, unknown> {
+    const eventBusStats = this.eventBus.stats();
+    const visionStats = this.visionAgent.getStats();
+
     return {
       booted: this._booted,
-      eventBus: { historySize: this.eventBus.history().length },
+      eventBus: eventBusStats,
       kernel: { running: this.kernel.isRunning, tick: this.kernel.tick },
       sensors: {
         total: this.sensorRegistry.getAllSensors().length,
@@ -103,7 +106,17 @@ export class NuwaOS {
         running: this.gateway.isRunning,
         devices: this.gateway.getAllDevices().length,
       },
-      agent: this.visionAgent.getStats(),
+      agent: visionStats,
+      diagnostics: {
+        health: this._booted && this.kernel.isRunning ? 'healthy' : 'stopped',
+        signal: {
+          eventsPublished: eventBusStats.publishedEvents,
+          eventsDelivered: eventBusStats.deliveredEvents,
+          unmatchedEvents: eventBusStats.unmatchedEvents,
+          handlerErrors: eventBusStats.handlerErrors,
+          framesProcessed: visionStats.framesProcessed,
+        },
+      },
     };
   }
 
