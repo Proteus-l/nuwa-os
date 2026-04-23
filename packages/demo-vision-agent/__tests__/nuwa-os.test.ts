@@ -100,6 +100,9 @@ describe('NuwaOS', () => {
     const eventBusStatus = status.eventBus as Record<string, unknown>;
     expect(typeof eventBusStatus.historySize).toBe('number');
     expect(eventBusStatus.historySize as number).toBeGreaterThan(0);
+    expect(eventBusStatus.publishedEvents as number).toBeGreaterThan(0);
+    expect(eventBusStatus.deliveredEvents as number).toBeGreaterThan(0);
+    expect(eventBusStatus.unmatchedEvents as number).toBeGreaterThanOrEqual(0);
   });
 
   it('should set VisionAgent to IDLE after shutdown', async () => {
@@ -108,5 +111,22 @@ describe('NuwaOS', () => {
 
     const agent = os.getVisionAgent();
     expect(agent.state).toBe(AgentState.IDLE);
+  });
+
+  it('should expose healthy diagnostics when running', async () => {
+    await os.boot();
+    vi.advanceTimersByTime(300);
+    await new Promise<void>((r) => {
+      r();
+    });
+
+    const status = os.status();
+    const diagnostics = status.diagnostics as Record<string, unknown>;
+    const signal = diagnostics.signal as Record<string, unknown>;
+
+    expect(diagnostics.health).toBe('healthy');
+    expect(signal.eventsPublished as number).toBeGreaterThan(0);
+    expect(signal.unmatchedEvents as number).toBeGreaterThanOrEqual(0);
+    expect(signal.framesProcessed as number).toBeGreaterThanOrEqual(0);
   });
 });

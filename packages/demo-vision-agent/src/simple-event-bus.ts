@@ -1,9 +1,33 @@
 import { NuwaEvent, EventHandler } from './types';
 
+export interface EventBusStats {
+  publishedEvents: number;
+  deliveredEvents: number;
+  handlerErrors: number;
+  unmatchedEvents: number;
+  activeSubscriptions: number;
+  historySize: number;
+}
+
+export interface EventAuditRecord {
+  timestamp: number;
+  type: 'published' | 'handler_error' | 'unmatched';
+  eventId: string;
+  topic: string;
+  source: string;
+  subscriberId?: string;
+  error?: string;
+}
+
 export class SimpleEventBus {
   private subs = new Map<string, { topic: string; handler: EventHandler }>();
   private counter = 0;
   private _history: NuwaEvent[] = [];
+  private audit: EventAuditRecord[] = [];
+  private publishedEvents = 0;
+  private deliveredEvents = 0;
+  private handlerErrors = 0;
+  private unmatchedEvents = 0;
 
   subscribe(topic: string, handler: EventHandler): string {
     const id = `sub_${++this.counter}`;
@@ -16,16 +40,51 @@ export class SimpleEventBus {
   }
 
   publish(event: NuwaEvent): void {
+    this.publishedEvents += 1;
     this._history.push(event);
     if (this._history.length > 1000) this._history.shift();
+    this.audit.push({
+      timestamp: Date.now(),
+      type: 'published',
+      eventId: event.id,
+      topic: event.topic,
+      source: event.source,
+    });
+    if (this.audit.length > 1000) this.audit.shift();
+
+    let matched = false;
     for (const [, sub] of this.subs) {
       if (this.matchTopic(sub.topic, event.topic)) {
+        matched = true;
         try {
           sub.handler(event);
+          this.deliveredEvents += 1;
         } catch {
-          // swallow handler errors
+          this.handlerErrors += 1;
+          this.audit.push({
+            timestamp: Date.now(),
+            type: 'handler_error',
+            eventId: event.id,
+            topic: event.topic,
+            source: event.source,
+            subscriberId: sub.topic,
+            error: 'handler execution failed',
+          });
+          if (this.audit.length > 1000) this.audit.shift();
         }
       }
+    }
+
+    if (!matched) {
+      this.unmatchedEvents += 1;
+      this.audit.push({
+        timestamp: Date.now(),
+        type: 'unmatched',
+        eventId: event.id,
+        topic: event.topic,
+        source: event.source,
+      });
+      if (this.audit.length > 1000) this.audit.shift();
     }
   }
 
@@ -61,5 +120,21 @@ export class SimpleEventBus {
 
   generateEventId(): string {
     return `evt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  stats(): EventBusStats {
+    return {
+      publishedEvents: this.publishedEvents,
+      deliveredEvents: this.deliveredEvents,
+      handlerErrors: this.handlerErrors,
+      unmatchedEvents: this.unmatchedEvents,
+      activeSubscriptions: this.subs.size,
+      historySize: this._history.length,
+    };
+  }
+
+  auditTrail(limit?: number): EventAuditRecord[] {
+    const trail = [...this.audit].reverse();
+    return limit ? trail.slice(0, limit) : trail;
   }
 }
